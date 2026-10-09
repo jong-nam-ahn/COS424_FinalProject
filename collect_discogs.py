@@ -174,7 +174,7 @@ def main():
     # One lookup per album: reissue reviews of the same album share a Discogs entry
     pf = pf.drop_duplicates(["artist", "album"]).sample(frac=1, random_state=args.seed)
 
-    prev = pd.read_csv(args.output) if os.path.exists(args.output) else pd.DataFrame(columns=FIELDS)
+    prev = pd.read_csv(args.output, encoding="utf-8") if os.path.exists(args.output) else pd.DataFrame(columns=FIELDS)
     done = set(zip(prev["artist"], prev["album"]))
     todo = [r for r in pf.itertuples() if (r.artist, r.album) not in done]
     total = len(pf)  # albums in scope for this run (after --genres)
@@ -186,7 +186,7 @@ def main():
 
     client = Discogs(token)
     new_file = not os.path.exists(args.output)
-    with open(args.output, "a", newline="") as f:
+    with open(args.output, "a", newline="", encoding="utf-8") as f:  # Windows defaults to cp1252
         writer = csv.DictWriter(f, fieldnames=FIELDS)
         if new_file:
             writer.writeheader()
