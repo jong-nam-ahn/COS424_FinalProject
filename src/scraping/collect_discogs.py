@@ -3,12 +3,12 @@
 For each album: search Discogs masters by artist + title, pick the best match,
 then read the community rating (average + count) of that master's main release.
 
-Usage:
+Usage (from the repository root):
     export DISCOGS_TOKEN=...            # https://www.discogs.com/settings/developers
-    python collect_discogs.py --limit 20             # quick test
-    python collect_discogs.py --hours 4              # stop cleanly after 4 hours
-    python collect_discogs.py --genres Rock Rap Electronic Experimental Pop/R&B
-    python collect_discogs.py                        # everything (~3 requests per album)
+    python src/scraping/collect_discogs.py --limit 20             # quick test
+    python src/scraping/collect_discogs.py --hours 4              # stop cleanly after 4 hours
+    python src/scraping/collect_discogs.py --genres Rock Rap Electronic Experimental Pop/R&B
+    python src/scraping/collect_discogs.py                        # everything (~3 requests per album)
 
 Progress is appended to the output CSV after every album, so the script can be
 stopped and re-run at any time; albums already in the output are skipped.
