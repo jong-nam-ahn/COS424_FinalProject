@@ -1,4 +1,4 @@
-"""Collect Discogs community ratings for the albums in output-data.csv (Pitchfork).
+"""Collect Discogs community ratings for the albums in data/pitchfork.csv (Pitchfork).
 
 For each album: search Discogs masters by artist + title, pick the best match,
 then read the community rating (average + count) of that master's main release.
@@ -155,7 +155,7 @@ def lookup(client, artist, album, year):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--input", default="data/output-data.csv")
+    ap.add_argument("--input", default="data/pitchfork.csv")
     ap.add_argument("--output", default="data/discogs_ratings.csv")
     ap.add_argument("--genres", nargs="*", help="only these Pitchfork genres, e.g. Rock Rap 'Pop/R&B'")
     ap.add_argument("--limit", type=int, help="stop after this many new albums (for testing)")
