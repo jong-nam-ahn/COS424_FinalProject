@@ -4,7 +4,10 @@ Every function either returns a table (DataFrame/Series) or draws one figure, so
 only needs one-line calls. Discogs ratings (1-5 stars) are put on Pitchfork's 0-10 scale by
 multiplying by 2 (column `rating_10`).
 """
+import warnings
+
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import seaborn as sns
 from sklearn.preprocessing import StandardScaler
@@ -13,6 +16,8 @@ DATA_PATH = "data/pitchfork_discogs.csv"
 
 AUDIO_FEATURES = ["danceability", "energy", "key", "loudness", "speechiness",
                   "acousticness", "instrumentalness", "liveness", "valence", "tempo"]
+# PCA leaves out `key`: it is a category (C, C#, ..., B coded 0-11), not a quantity to standardize
+PCA_FEATURES = [f for f in AUDIO_FEATURES if f != "key"]
 NUMERIC_COLUMNS = ["releaseyear", "score", "rating_avg", "rating_count"] + AUDIO_FEATURES
 SUMMARY_STATS = ["mean", "std", "min", "median", "max", "count"]
 
@@ -157,12 +162,16 @@ def umap_embedding(df, n_genres=5, features=AUDIO_FEATURES, random_state=424):
 
     Returns (embedding array, genre Series aligned with it).
     """
-    import umap  # imported here: slow to import and only needed for this plot
-
     top = df["genre"].value_counts().head(n_genres).index
     subset = df[df["genre"].isin(top)]
     scaled = StandardScaler().fit_transform(subset[features].values)
-    embedding = umap.UMAP(random_state=random_state).fit_transform(scaled)
+
+    # Silence two harmless UMAP warnings: tqdm asking for ipywidgets (progress bars), and
+    # "n_jobs overridden to 1" (a fixed random_state makes UMAP single-threaded, as intended).
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        import umap  # imported here: slow to import and only needed for this plot
+        embedding = umap.UMAP(random_state=random_state, n_jobs=1).fit_transform(scaled)
     return embedding, subset["genre"]
 
 
@@ -172,6 +181,41 @@ def plot_umap(embedding, genres):
                     alpha=0.5, s=20, linewidth=0, palette="Dark2")
     plt.legend(title="Genre", loc="upper right")
     _finish("UMAP of Musicality Features by Genre")
+
+
+def fit_pca(df, features=PCA_FEATURES):
+    """Fit a PCA (all components) on the standardized audio features and return it."""
+    from sklearn.decomposition import PCA
+
+    return PCA().fit(StandardScaler().fit_transform(df[features]))
+
+
+def pca_variance_table(pca):
+    """Share of the total variance explained by each component, and cumulatively."""
+    ratio = pca.explained_variance_ratio_
+    return pd.DataFrame({"explained": ratio, "cumulative": ratio.cumsum()},
+                        index=[f"PC{i + 1}" for i in range(len(ratio))]).round(3)
+
+
+
+
+
+
+def plot_pca_variance(pca):
+    """Bars: variance explained by each component; line: cumulative share."""
+    table = pca_variance_table(pca)
+    x = range(1, len(table) + 1)
+    plt.figure(figsize=(9, 5))
+    plt.bar(x, table["explained"], color="cornflowerblue", label="Individual component")
+    plt.plot(x, table["cumulative"], marker="o", color="tomato", label="Cumulative")
+    plt.xticks(list(x))
+    plt.ylim(0, 1.05)
+    plt.legend(loc="center right")
+    _finish("PCA of Audio Features: Explained Variance", "Principal component", "Share of variance explained")
+
+
+
+
 
 
 def _overlay_kde(ax, scores, ratings):
@@ -187,6 +231,43 @@ def plot_pitchfork_vs_discogs(df):
     _overlay_kde(ax, df["score"], df["rating_10"])
     ax.legend(loc="upper left")
     _finish("Distribution of Pitchfork Scores vs Discogs Ratings")
+
+
+def rank_agreement(df, n_boot=1000, seed=0):
+    """How well do Pitchfork and Discogs agree on the *ordering* of albums?
+
+    Returns the Spearman rank correlation with a 95% bootstrap CI, and the share of Pitchfork's
+    top-25% albums that are also in Discogs' top 25% (25% would mean no relation).
+    """
+    score, rating = df["score"].to_numpy(), df["rating_avg"].to_numpy()
+
+    def spearman(i):
+        return pd.Series(score[i]).corr(pd.Series(rating[i]), method="spearman")
+
+    rng = np.random.default_rng(seed)
+    boot = [spearman(rng.integers(0, len(df), len(df))) for _ in range(n_boot)]
+
+    return pd.Series({
+        "n_albums": len(df),
+        "spearman": spearman(np.arange(len(df))),
+        "ci_lo": np.percentile(boot, 2.5),
+        "ci_hi": np.percentile(boot, 97.5),
+    }).round(3)
+
+
+def plot_percentile_scatter(df):
+    """Each album's Pitchfork percentile vs its Discogs percentile; dashed line = perfect agreement."""
+    pct_p = df["score"].rank(pct=True) * 100
+    pct_d = df["rating_avg"].rank(pct=True) * 100
+    rho = df["score"].corr(df["rating_avg"], method="spearman")
+    plt.figure(figsize=(7, 7))
+    plt.scatter(pct_p, pct_d, s=5, alpha=0.3, color="cornflowerblue", linewidths=0)
+    plt.plot([0, 100], [0, 100], color="tomato", linestyle="--", label="Perfect agreement")
+    plt.xlim(0, 100)
+    plt.ylim(0, 100)
+    plt.legend(loc="upper left")
+    _finish(f"Pitchfork vs Discogs Percentile Rank (Spearman ρ = {rho:.2f}, n = {len(df):,})",
+            "Pitchfork score (percentile)", "Discogs rating (percentile)")
 
 
 def plot_pitchfork_vs_discogs_by_genre(df, legend_genre="Electronic"):
