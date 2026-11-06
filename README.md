@@ -25,8 +25,9 @@ All commands below are run from the repository root.
 
 ## Quick start
 
+### 0. Install dependencies
+
 ```bash
-# 0. Install dependencies
 pip install -r requirements.txt
 ```
 
@@ -39,11 +40,10 @@ The scraped and merged data are already in `data/`, so this step is only needed 
 export DISCOGS_TOKEN=your_token_here
 
 # 1b. Scrape Discogs ratings for the Pitchfork albums into data/discogs.csv
-#     (~3 requests per album at 60/min; re-running the same command resumes where it stopped)
 python src/scraping/collect_discogs.py --limit 20 --output data/discogs.csv   # quick test
 python src/scraping/collect_discogs.py --hours 4  --output data/discogs.csv   # stops cleanly after 4 hours
 
-# 1c. Join with Pitchfork, filter, and save data/pitchfork_discogs.csv
+# 1c. Join with Pitchfork and save data/pitchfork_discogs.csv
 python src/scraping/build_dataset.py
 ```
 
@@ -51,9 +51,6 @@ python src/scraping/build_dataset.py
 
 ```bash
 # 2a. Open the notebook and run all cells
-jupyter notebook main_analysis.ipynb    # or open it in VS Code and choose "Run All"
-                                        # (`pip install notebook` if jupyter notebook is missing)
+jupyter notebook main_analysis.ipynb
 
-# 2b. (Optional) Baseline score-difference regression on its own
-python -m src.regression
 ```
